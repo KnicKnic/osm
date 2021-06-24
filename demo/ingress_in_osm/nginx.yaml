@@ -1,0 +1,143 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:        
+      annotations:
+        openservicemesh.io/sidecar-injection: enabled
+      labels:
+        app: nginx
+    spec:
+      serviceAccountName: nginx
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          failureThreshold: 9999
+          httpGet:
+            path: /
+            port: 80
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 1
+          successThreshold: 1
+          timeoutSeconds: 1
+---
+# Please edit the object below. Lines beginning with a '#' will be ignored,
+# and an empty file will abort the edit. If an error occurs while saving this file will be
+# reopened with the relevant failures.
+#
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+    appProtocol: http
+    # appProtocol: tcp
+  selector:
+    app: nginx
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nginx
+automountServiceAccountToken: false
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: nginx
+  annotations:
+    # openservicemesh.io/ignore: "true"
+    nginx.ingress.kubernetes.io/service-upstream: "true"
+    # set the host header to allow traffic through
+    nginx.ingress.kubernetes.io/upstream-vhost: nginx.default.svc.cluster.local
+  labels:
+    openservicemesh.io/ignore: "true"
+spec:
+  ingressClassName: test
+  rules:
+  - host: myapi.mydomain.com
+    http:
+      paths:
+      - backend:
+          serviceName: nginx
+          servicePort: 80
+        path: /
+---
+apiVersion: specs.smi-spec.io/v1alpha4
+kind: TCPRoute
+metadata:
+  name: nginx
+spec:
+  matches:
+    ports:
+    - 80
+---
+apiVersion: specs.smi-spec.io/v1alpha4
+kind: HTTPRouteGroup
+metadata:
+  name: nginx
+spec:
+  matches:
+    - name: everything
+      pathRegex: ".*"
+      methods: ["*"]
+---
+apiVersion: access.smi-spec.io/v1alpha3
+kind: TrafficTarget
+metadata:
+  name: nginx
+spec:
+  destination:
+    kind: ServiceAccount
+    name: nginx
+    namespace: default
+  rules:
+  - kind: HTTPRouteGroup
+    name: nginx
+    namespace: default
+    matches:
+      - everything
+  # - kind: TCPRoute
+  #   name: nginx
+  #   namespace: default
+  sources:
+  - kind: ServiceAccount
+    name: test-ingress-nginx
+    namespace: default
+---
+kind: Egress
+apiVersion: policy.openservicemesh.io/v1alpha1
+metadata:
+  name: nging-egress
+spec:
+  sources:
+  - kind: ServiceAccount
+    name: test-ingress-nginx
+    namespace: default
+  hosts:
+  - 10.0.0.1
+  ports:
+  - number: 443
+    protocol: https
