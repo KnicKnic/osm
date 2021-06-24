@@ -27,7 +27,9 @@ helm upgrade --install test ingress-nginx/ingress-nginx --set controller.ingress
 
 ## Files
 * mesh config - [meshconfig-set.yaml](./meshconfig-set.yaml)
+    * Note I disable service mesh on the standard kubernetes api-server ip (10.0.0.1)
 * pods & traffic rules - [nginx.yaml](./nginx.yaml)
+    * you will see an egress rule for the same api-server ip as above, however this doesn't work in permissive mode
 
 
 ## Demo / commands to restart
