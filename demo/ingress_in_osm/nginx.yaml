@@ -68,7 +68,6 @@ kind: Ingress
 metadata:
   name: nginx
   annotations:
-    # openservicemesh.io/ignore: "true"
     nginx.ingress.kubernetes.io/service-upstream: "true"
     # set the host header to allow traffic through
     nginx.ingress.kubernetes.io/upstream-vhost: nginx.default.svc.cluster.local
